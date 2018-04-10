@@ -32,7 +32,7 @@ main(int argc, char* argv[])
     auto t1 = input.getReal("t1", 1.0);
     //auto t2 = input.getReal("t2", 1.0);
     auto periodic = input.getYesNo("periodic",false);
-    auto lattice_type = input.getString("lattice_type","square");
+    //auto lattice_type = input.getString("lattice_type","square");
 
     auto beta = input.getReal("beta",1);
     auto tau = input.getReal("tau",0.005);
@@ -61,7 +61,7 @@ main(int argc, char* argv[])
     args.add("Verbose",verbose);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
-    //auto sites = Hubbard(2*N);
+    //auto sites = Hubbard(2*N, {"ConserveNf",true,"ConserveSz", true});
 
     //auto sites = Hubbard(2*N);
     //auto Ntot_3 = sites.op("Ntot", N);
@@ -82,7 +82,8 @@ main(int argc, char* argv[])
     {
         int s1 = 2*i-1;
     //    //cout << s1 << endl;
-        ampo += U,"Nup",s1, "Ndn", s1;
+        ampo += U, "Nupdn", s1;
+    //    ampo += U,"Nup",s1, "Ndn", s1;
     }
 
     ///////////////////////////
@@ -105,18 +106,31 @@ main(int argc, char* argv[])
         ampo += -t1,"Cdagdn",s2,"Cdn",s1;
     }
 
+
+    // define number operator
+    auto nmpo = AutoMPO(sites);
+    for(int i=1; i<=N; ++i)
+    {
+        int s1 = 2*i-1;
+        nmpo += 1.0, "Nup", s1;
+        nmpo += 1.0, "Ndn", s1;
+    }
+
+    cout << nmpo << endl;
+    auto Ntot = MPOT(nmpo);
     /////////////////////////////
     // chemical potential term //
     /////////////////////////////
 
-    //for(int i=1; i<=N; ++i) 
-    //{
-    //    int s1 = 2*i-1;
-    //    ampo += -mu, "Adagup", s1, "Aup", s1;
-    //    ampo += -mu, "Adagdn", s1, "Adn", s1;
-    //}
+    mu = U/2;
+    for(int i=1; i<=N; ++i) 
+    {
+        int s1 = 2*i-1;
+        ampo += -mu, "Nup", s1;
+        ampo += -mu, "Ndn", s1;
+    }
 
-    //cout << ampo << endl;
+    cout << ampo << endl;
     
 
     MPOT expHa,expHb;
@@ -150,6 +164,10 @@ main(int argc, char* argv[])
         auto s2 = sites(n+1);
         auto wf = TensorT(s1,s2);
         // define the initial state of the real-facticious pair for fermions
+        //wf.set(s1(1),s2(4), 0.5);
+        //wf.set(s1(2),s2(3), 0.5);
+        //wf.set(s1(3),s2(2), 0.5);
+        //wf.set(s1(4),s2(1), 0.5);
         wf.set(s1(1),s2(1), 0.5);
         wf.set(s1(2),s2(2), 0.5);
         wf.set(s1(3),s2(3), 0.5);
@@ -174,6 +192,7 @@ main(int argc, char* argv[])
     auto targs = args;
 
     auto En = Vector(nt);
+    auto Nn = Vector(nt);
     //auto Sus = Vector(nt);
     auto Betas = Vector(nt);
 
@@ -190,6 +209,7 @@ main(int argc, char* argv[])
             psi = exactApplyMPO(expHb,psi,args);
             }
         psi.Aref(1) /= norm(psi.A(1));
+        //cout << "norm of psi: " << norm(psi.Aref(1)) << endl;
         tsofar += tau;
         targs.add("TimeStepNum",tt);
         targs.add("Time",tsofar);
@@ -204,8 +224,11 @@ main(int argc, char* argv[])
         // Measure Energy
         //
         auto en = overlap(psi,H,psi);
+        auto npart = overlap(psi, Ntot, psi);
+        printfln("\nNtot %.4f  %.6f", bb, npart);
         printfln("\nEnergy/N %.4f %.20f",bb,en/(N));
         En(tt-1) = en/N;
+        Nn(tt-1) = npart;
 
         //
         // Measure Susceptibility
@@ -216,14 +239,17 @@ main(int argc, char* argv[])
         println();
         }
 
-    std::ofstream enf("chkdr/U" + std::to_string(U) + "en.dat");
+    std::ofstream enf("/home/sunchong/work/finiteTMPS/tests/chkdr/en_U" + std::to_string(U) + ".dat");
+    std::ofstream npartf("/home/sunchong/work/finiteTMPS/tests/chkdr/npart_U" + std::to_string(U) + ".dat");
     //std::ofstream susf("sus.dat");
     for(auto n : range(Betas))
         {
         enf << format("%.14f %.14f\n",Betas(n),En(n));
+        npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
         //susf << format("%.14f %.14f\n",Betas(n),Sus(n));
         }
     enf.close();
+    npartf.close();
     //susf.close();
 
     writeToFile("chkdr/sites",sites);
