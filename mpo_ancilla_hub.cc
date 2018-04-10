@@ -23,10 +23,11 @@ main(int argc, char* argv[])
         }
     auto input = InputGroup(argv[1],"input");
 
-    auto Nx = input.getInt("Nx",10);
-    auto Ny = input.getInt("Ny",1);
+    auto N = input.getInt("Nx",10);
+    //auto Ny = input.getInt("Ny",1);
     auto Npart = input.getInt("Npart",1);
     auto U = input.getReal("U", 1.0);
+    auto mu = input.getReal("mu", 1.0);
     //auto V1 = input.getReal("V1",1.0);
     auto t1 = input.getReal("t1", 1.0);
     //auto t2 = input.getReal("t2", 1.0);
@@ -45,31 +46,32 @@ main(int argc, char* argv[])
     auto realstep = input.getYesNo("realstep",false);
     auto verbose = input.getYesNo("verbose",false);
 
-    auto N = Nx*Ny;
-    cout << "tau = " << tau << endl;
+    //auto N = Nx*Ny;
+    //cout << "tau = " << tau << endl;
 
     Args args;
-    args.add("Nx",Nx);
-    args.add("Ny",Ny);
+    args.add("N",N);
+    //args.add("Ny",Ny);
     //args.add("Npart",Npart);
     //args.add("Jz",Jz);
     //args.add("Jxy",Jxy);
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
-    args.add("YPeriodic",periodic);
+    //args.add("YPeriodic",periodic);
     args.add("Verbose",verbose);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
+    //auto sites = Hubbard(2*N);
 
     //auto sites = Hubbard(2*N);
     //auto Ntot_3 = sites.op("Ntot", N);
-    writeToFile("chkdr/sites",sites);
+    //writeToFile("chkdr/sites",sites);
 
-    LatticeGraph lattice; 
-    if(lattice_type == "triangular")
-        lattice = triangularLattice(Nx,Ny,args);
-    else if(lattice_type == "square")
-        lattice = squareLattice(Nx,Ny,args);
+    //LatticeGraph lattice; 
+    //if(lattice_type == "triangular")
+    //    lattice = triangularLattice(Nx,Ny,args);
+    //else if(lattice_type == "square")
+    //    lattice = squareLattice(Nx,Ny,args);
 
     auto ampo = AutoMPO(sites);
 
@@ -86,34 +88,36 @@ main(int argc, char* argv[])
     ///////////////////////////
     // nearest neighbor term //
     ///////////////////////////
-    for(auto b : lattice)
-        {
-        
-        //cout << b.s1 << " " << b.s2 << endl;
 
-        auto s1 = 2*b.s1 - 1;
-        auto s2 = 2*b.s2 - 1;
+    int endpnt;
+    if(periodic) endpnt = N;
+    else endpnt = N-1;
+    
+    for(int i=1; i<=endpnt;++i ) // with PBC
+    {
+        int s1 = 2*i-1;
+        int s2 = 2*(i+1)-1;
+        if(i==N) s2 = 1;
+        cout << "s1 " << s1 << " s2 " << s2 << endl;
+        ampo += -t1,"Cdagup",s1,"Cup",s2;
+        ampo += -t1,"Cdagup",s2,"Cup",s1;
+        ampo += -t1,"Cdagdn",s1,"Cdn",s2;
+        ampo += -t1,"Cdagdn",s2,"Cdn",s1;
+    }
 
-        //cout << s1 << " " << s2 << endl; 
-        ampo += -t1,"Adagup",s1,"Aup",s2;
-        ampo += -t1,"Adagup",s2,"Aup",s1;
-        ampo += -t1,"Adagdn",s1,"Adn",s2;
-        ampo += -t1,"Adagdn",s2,"Adn",s1;
-        //ampo += V1,"Ntot",b,"Ntot",b+1;
-        //ampo += U, "Nup", s1, "Ndn", s1;
-        }
+    /////////////////////////////
+    // chemical potential term //
+    /////////////////////////////
+
+    //for(int i=1; i<=N; ++i) 
+    //{
+    //    int s1 = 2*i-1;
+    //    ampo += -mu, "Adagup", s1, "Aup", s1;
+    //    ampo += -mu, "Adagdn", s1, "Adn", s1;
+    //}
+
     //cout << ampo << endl;
-
-    ///////////////////////////////////
-    // next-to-nearest neighbor term //
-    ///////////////////////////////////
-    //for(int b = 1; b < N-1; ++b)
-    //    {
-    //    ampo += -t2,"Cdagup",b,"Cup",b+2;
-    //    ampo += -t2,"Cdagup",b+2,"Cup",b;
-    //    ampo += -t2,"Cdagdn",b,"Cdn",b+2;
-    //    ampo += -t2,"Cdagdn",b+2,"Cdn",b;
-    //    }
+    
 
     MPOT expHa,expHb;
     MPOT expH;
@@ -200,7 +204,7 @@ main(int argc, char* argv[])
         // Measure Energy
         //
         auto en = overlap(psi,H,psi);
-        printfln("\nEnergy/N %.4f %.20f",bb,en/(2*N));
+        printfln("\nEnergy/N %.4f %.20f",bb,en/(N));
         En(tt-1) = en/N;
 
         //
@@ -212,7 +216,7 @@ main(int argc, char* argv[])
         println();
         }
 
-    std::ofstream enf("en.dat");
+    std::ofstream enf("chkdr/U" + std::to_string(U) + "en.dat");
     //std::ofstream susf("sus.dat");
     for(auto n : range(Betas))
         {
@@ -222,8 +226,8 @@ main(int argc, char* argv[])
     enf.close();
     //susf.close();
 
-    writeToFile("sites",sites);
-    writeToFile("psi",psi);
+    writeToFile("chkdr/sites",sites);
+    writeToFile("chkdr/psi",psi);
 
     return 0;
     }
