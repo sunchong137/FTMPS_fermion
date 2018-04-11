@@ -40,21 +40,15 @@ main(int argc, char* argv[])
     auto maxm = input.getInt("maxm",1000);
     auto cutoff = input.getReal("cutoff",1E-11);
 
-//    auto Jz = input.getReal("Jz",1.);
-//    auto Jxy = input.getReal("Jxy",1.);
-
     auto realstep = input.getYesNo("realstep",false);
     auto verbose = input.getYesNo("verbose",false);
 
     //auto N = Nx*Ny;
-    //cout << "tau = " << tau << endl;
 
     Args args;
     args.add("N",N);
     //args.add("Ny",Ny);
     //args.add("Npart",Npart);
-    //args.add("Jz",Jz);
-    //args.add("Jxy",Jxy);
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     //args.add("YPeriodic",periodic);
@@ -62,17 +56,12 @@ main(int argc, char* argv[])
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
     //auto sites = Hubbard(2*N, {"ConserveNf",true,"ConserveSz", true});
-
     //auto sites = Hubbard(2*N);
-    //auto Ntot_3 = sites.op("Ntot", N);
-    //writeToFile("chkdr/sites",sites);
 
-    //LatticeGraph lattice; 
-    //if(lattice_type == "triangular")
-    //    lattice = triangularLattice(Nx,Ny,args);
-    //else if(lattice_type == "square")
-    //    lattice = squareLattice(Nx,Ny,args);
-
+    
+    ////////////////////////////////////////////////////////
+    //               Construct Hamitltonian               //
+    ////////////////////////////////////////////////////////
     auto ampo = AutoMPO(sites);
 
     //////////////////
@@ -81,43 +70,26 @@ main(int argc, char* argv[])
     for(int i=1; i<=N;++i ) 
     {
         int s1 = 2*i-1;
-    //    //cout << s1 << endl;
         ampo += U, "Nupdn", s1;
-    //    ampo += U,"Nup",s1, "Ndn", s1;
     }
-
     ///////////////////////////
     // nearest neighbor term //
     ///////////////////////////
 
-    int endpnt;
+    int endpnt; //PBC or OBC
     if(periodic) endpnt = N;
     else endpnt = N-1;
     
-    for(int i=1; i<=endpnt;++i ) // with PBC
+    for(int i=1; i<=endpnt;++i )
     {
         int s1 = 2*i-1;
         int s2 = 2*(i+1)-1;
         if(i==N) s2 = 1;
-        cout << "s1 " << s1 << " s2 " << s2 << endl;
         ampo += -t1,"Cdagup",s1,"Cup",s2;
         ampo += -t1,"Cdagup",s2,"Cup",s1;
         ampo += -t1,"Cdagdn",s1,"Cdn",s2;
         ampo += -t1,"Cdagdn",s2,"Cdn",s1;
     }
-
-
-    // define number operator
-    auto nmpo = AutoMPO(sites);
-    for(int i=1; i<=N; ++i)
-    {
-        int s1 = 2*i-1;
-        nmpo += 1.0, "Nup", s1;
-        nmpo += 1.0, "Ndn", s1;
-    }
-
-    cout << nmpo << endl;
-    auto Ntot = MPOT(nmpo);
     /////////////////////////////
     // chemical potential term //
     /////////////////////////////
@@ -130,8 +102,31 @@ main(int argc, char* argv[])
         ampo += -mu, "Ndn", s1;
     }
 
-    cout << ampo << endl;
+    auto H = MPOT(ampo);
+
+    ///////////////////////////////////////////////////
+    //             total number operator             //
+    ///////////////////////////////////////////////////
+    auto nmpo = AutoMPO(sites);
+    for(int i=1; i<=N; ++i)
+    {
+        int s1 = 2*i-1;
+        nmpo += 1.0, "Nup", s1;
+        nmpo += 1.0, "Ndn", s1;
+    }
+
+    auto Ntot = MPOT(nmpo);
+
+    //
+    // density matrix
+    //  
+    auto dmpo = AutoMPO(sites);
+    dmpo += 1.0, "Cdagup", 1, "Cup", 3;
+    auto D = MPOT(dmpo);
     
+    ////////////////////////////////////////////////////
+    //                 time evolution                 //
+    ////////////////////////////////////////////////////
 
     MPOT expHa,expHb;
     MPOT expH;
@@ -149,7 +144,6 @@ main(int argc, char* argv[])
         expHb = toExpH<TensorT>(ampo,taub);
         }
 
-    auto H = MPOT(ampo);
 
 
     //
@@ -193,7 +187,6 @@ main(int argc, char* argv[])
 
     auto En = Vector(nt);
     auto Nn = Vector(nt);
-    //auto Sus = Vector(nt);
     auto Betas = Vector(nt);
 
     Real tsofar = 0;
@@ -221,21 +214,25 @@ main(int argc, char* argv[])
         Betas(tt-1) = bb;
 
         //
-        // Measure Energy
+        // Measure Energy and
         //
         auto en = overlap(psi,H,psi);
+        printfln("\nEnergy/N %.4f %.20f",bb,en/N);
+        En(tt-1) = en/N;
+
+        //
+        // Measure total particle number
+        //
+
         auto npart = overlap(psi, Ntot, psi);
         printfln("\nNtot %.4f  %.6f", bb, npart);
-        printfln("\nEnergy/N %.4f %.20f",bb,en/(N));
-        En(tt-1) = en/N;
         Nn(tt-1) = npart;
 
         //
-        // Measure Susceptibility
+        // Measure density matrix
         //
-        //auto s2val = overlap(psi,S2,psi);
-        //Sus(tt-1) = (s2val*bb/3.)/N;
-
+        auto d12 = overlap(psi, D, psi);
+        printfln("\n <a^+_1 a_2>  %.4f %.20f",bb,d12);
         println();
         }
 
