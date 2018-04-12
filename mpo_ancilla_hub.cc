@@ -10,6 +10,11 @@ using TensorT = ITensor;
 using MPOT = MPOt<TensorT>;
 using MPST = MPSt<TensorT>;
 
+double** get_rdm1up(MPST psi, int N);
+double** get_rdm1dn(MPST psi, int N);
+double *get_rdm2diag(MPST psi, int N);
+
+
 int 
 main(int argc, char* argv[])
     {
@@ -118,11 +123,25 @@ main(int argc, char* argv[])
     auto Ntot = MPOT(nmpo);
 
     //
-    // density matrix
+    // density matrix for test ****************
     //  
-    auto dmpo = AutoMPO(sites);
-    dmpo += 1.0, "Cdagup", 1, "Cup", 3;
-    auto D = MPOT(dmpo);
+    int corrleft = 3;
+    int corrright = 3;
+    int lind = 2*corrleft-1;
+    int rind = 2*corrright-1;
+    auto dmpoup = AutoMPO(sites);
+    auto dmpodn = AutoMPO(sites);
+    auto dompo  = AutoMPO(sites);
+    dmpoup += 1.0, "Cdagup", lind, "Cup", rind;
+    dmpodn += 1.0, "Cdagdn", lind, "Cdn", rind;
+    dompo  += 1.0, "Nupdn", lind;
+    auto Dup = MPOT(dmpoup);
+    auto Ddn = MPOT(dmpodn);
+    auto Do  = MPOT(dompo);
+        
+
+
+    // END TEST*********************************
     
     ////////////////////////////////////////////////////
     //                 time evolution                 //
@@ -228,12 +247,88 @@ main(int argc, char* argv[])
         printfln("\nNtot %.4f  %.6f", bb, npart);
         Nn(tt-1) = npart;
 
+        /////////////////////////////////////// TEST ////////////////////////////////////////
+
+        auto** rdm1up = get_rdm1up(psi, N);
+        auto** rdm1dn = get_rdm1dn(psi, N);
+        cout << "spin up:    " << rdm1up[corrleft-1][corrright-1] << endl;
+        cout << "spin down:  " << rdm1dn[corrleft-1][corrright-1] << endl;
+
         //
-        // Measure density matrix
+        // Measure density matrix up
         //
-        auto d12 = overlap(psi, D, psi);
-        printfln("\n <a^+_1 a_2>  %.4f %.20f",bb,d12);
+        auto d12 = overlap(psi, Dup, psi);
+        printfln("\n <a^+_1 a_2> UP  %.4f %.20f",bb,d12);
         println();
+
+        // Measure density matrix down
+        //
+        auto ddn = overlap(psi, Ddn, psi);
+        printfln("\n <a^+_1 a_2> DOWN  %.4f %.20f",bb,ddn);
+        println();
+
+
+        auto dos = overlap(psi, Do, psi);
+        printfln("\n Do from mpo %.4f %.20f",bb, dos);
+        auto* rdm2=get_rdm2diag(psi, N);
+        cout << "Double occ: " << rdm2[corrleft-1] << endl;
+        
+        ////////////////////////////////////END TEST ////////////////////////////////////////
+        
+        //
+        //
+        //// 
+        //// Calculate correlator up
+        ////
+        //auto AdagupF_i = sites.op("Adagup*F", lind);
+        //auto Aup_j = sites.op("Aup", rind);
+        //psi.position(lind);
+        //auto ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
+        //auto Corrup = psi.A(lind)*AdagupF_i*dag(prime(psi.A(lind),Site,ir));
+        //for(int k=lind+1; k<rind; ++k)
+        //    {
+        //    Corrup *= psi.A(k);
+        //    Corrup *= sites.op("F", k);
+        //    Corrup *= dag(prime(psi.A(k)));
+        //    }
+        //Corrup *= psi.A(rind);
+        //Corrup *= Aup_j;
+        //auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link); 
+        //Corrup *= dag(prime(psi.A(rind),jl,Site)); 
+
+        //
+        //auto djw = Corrup.real();
+        //printfln("\n <a^+_1 a_2> ---jw UP %.4f %.20f",bb,djw);
+
+        ////
+        //// Measure density matrix down
+        ////
+        //auto ddn = overlap(psi, Ddn, psi);
+        //printfln("\n <a^+_1 a_2> DOWN  %.4f %.20f",bb,ddn);
+        //println();
+        //
+        //// 
+        //// Calculate correlator down
+        ////
+        //auto Adagdn_i = sites.op("Adagdn", lind);
+        //auto AdnF_j = sites.op("F*Adn", rind);
+        //psi.position(lind);
+        //ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
+        //auto Corrdn = psi.A(lind)*Adagdn_i*dag(prime(psi.A(lind),Site,ir));
+        //for(int k=lind+1; k<rind; ++k)
+        //    {
+        //    Corrdn *= psi.A(k);
+        //    Corrdn *= sites.op("F", k);
+        //    Corrdn *= dag(prime(psi.A(k)));
+        //    }
+        //Corrdn *= psi.A(rind);
+        //Corrdn *= AdnF_j;
+        //jl = commonIndex(psi.A(rind), psi.A(rind-1), Link); 
+        //Corrdn *= dag(prime(psi.A(rind),jl,Site)); 
+        //
+        //djw = Corrdn.real();
+        //printfln("\n <a^+_1 a_2> ---jw DOWN %.4f %.20f",bb,djw);
+
         }
 
     std::ofstream enf("/home/sunchong/work/finiteTMPS/tests/chkdr/en_U" + std::to_string(U) + ".dat");
@@ -253,5 +348,151 @@ main(int argc, char* argv[])
     writeToFile("chkdr/psi",psi);
 
     return 0;
+    }
+
+//////////////////////////////////////////////////////////////////////
+//              1-particle reduced density matrix (1RDM)            //
+//////////////////////////////////////////////////////////////////////
+
+//
+//Spin up
+//
+double** get_rdm1up(MPST psi, int N)
+    {
+    // initialize
+    auto sites = psi.sites();
+    double** rdm1 = 0;
+    rdm1 = new double*[N];
+    for(int i=0; i<N; ++i)
+        {
+        rdm1[i] = new double[N];
+        }
+    
+    // off-diagonal terms
+    int lind, rind, k;
+    for(int i=1; i<N; ++i)
+        {
+        lind = 2*i-1;
+        auto AdagupF_i = sites.op("Adagup*F", lind);
+        psi.position(lind);
+        auto ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
+        auto Corrup = psi.A(lind)*AdagupF_i*dag(prime(psi.A(lind),Site,ir));
+        for(int j=i+1; j<=N; ++j)
+            {
+            rind = 2*j-1;
+            auto Aup_j = sites.op("Aup", rind);
+            //first apply F to the ancilla - (rind-1) site
+            k = 2*j-2;
+            Corrup *= psi.A(k);
+            Corrup *= sites.op("F", k);
+            Corrup *= dag(prime(psi.A(k)));
+            //measure the correlation function
+            auto Corrij = Corrup * psi.A(rind);
+            Corrij *= Aup_j;
+            auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link);
+            Corrij *= dag(prime(psi.A(rind),jl,Site));
+            auto dij = Corrij.real();
+            rdm1[i-1][j-1] = dij;
+            rdm1[j-1][i-1] = dij;
+            // apply F to the rind site
+            k = rind;
+            Corrup *= psi.A(k);
+            Corrup *= sites.op("F", k);
+            Corrup *= dag(prime(psi.A(k)));
+            }
+        }
+    
+    // diagonal terms
+    for (int i=1; i<=N; ++i)
+        {
+        int ind = 2*i-1;
+        psi.position(ind);
+        auto res = psi.A(ind)*sites.op("Nup", ind)*dag(prime(psi.A(ind), Site));
+        rdm1[i-1][i-1] = res.real();
+        }
+    
+    return rdm1;
+
+    }
+
+//
+//Spin down
+//
+double** get_rdm1dn(MPST psi, int N)
+    {
+    // initialize
+    auto sites = psi.sites();
+    double** rdm1 = 0;
+    rdm1 = new double*[N];
+    for(int i=0; i<N; ++i)
+        {
+        rdm1[i] = new double[N];
+        }
+    
+    // off-diagonal terms
+    int lind, rind, k;
+    for(int i=1; i<N; ++i)
+        {
+        lind = 2*i-1;
+        auto Adagdn_i = sites.op("Adagdn", lind);
+        psi.position(lind);
+        auto ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
+        auto Corrdn = psi.A(lind)*Adagdn_i*dag(prime(psi.A(lind),Site,ir));
+        for(int j=i+1; j<=N; ++j)
+            {
+            rind = 2*j-1;
+            auto AdnF_j = sites.op("F*Adn", rind);
+            //first apply F to the ancilla - (rind-1) site
+            k = 2*j-2;
+            Corrdn *= psi.A(k);
+            Corrdn *= sites.op("F", k);
+            Corrdn *= dag(prime(psi.A(k)));
+            //measure the correlation function
+            auto Corrij = Corrdn * psi.A(rind);
+            Corrij *= AdnF_j;
+            auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link);
+            Corrij *= dag(prime(psi.A(rind),jl,Site));
+            auto dij = Corrij.real();
+            rdm1[i-1][j-1] = dij;
+            rdm1[j-1][i-1] = dij;
+            // apply F to the rind site
+            k = rind;
+            Corrdn *= psi.A(k);
+            Corrdn *= sites.op("F", k);
+            Corrdn *= dag(prime(psi.A(k)));
+            }
+        }
+    
+    // diagonal terms
+    for (int i=1; i<=N; ++i)
+        {
+        int ind = 2*i-1;
+        psi.position(ind);
+        auto res = psi.A(ind)*sites.op("Ndn", ind)*dag(prime(psi.A(ind), Site));
+        rdm1[i-1][i-1] = res.real();
+        }
+    
+    return rdm1;
+    }
+
+
+//////////////////////////////////////////////////////////////////////
+//         2-particle reduced density matrix (2RDM-diagonal)        //
+//////////////////////////////////////////////////////////////////////
+
+double *get_rdm2diag(MPST psi, int N)
+    {
+    auto sites = psi.sites();
+    double* rdm2 = 0;
+    rdm2 = new double[N];
+    for(int i=1; i<=N; ++i)
+        {
+        int ind = 2*i-1;
+        psi.position(ind);
+        auto res = psi.A(ind)*sites.op("Nupdn", ind)*dag(prime(psi.A(ind), Site));
+        rdm2[i-1] = res.real();
+        }
+
+    return rdm2;
     }
 
