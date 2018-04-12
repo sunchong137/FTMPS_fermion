@@ -17,7 +17,6 @@ collapse(MPSt<Tensor>& psi,
     {
     const auto N = psi.N();
     const auto d = psi.sites()(1).m();
-    auto sites = psi.sites();
     //const auto d = psi.model()(1).m();
 
     std::vector<int> state(N+1);
@@ -46,8 +45,7 @@ collapse(MPSt<Tensor>& psi,
         for(int s = 1; s < d; ++s)
             {
             //calculate overlap with projector
-            //auto z = (dag(prime(Aj1,Site))*toITensor(B->proj(j,s,args))*Aj1).cplx();
-            auto z = (dag(prime(Aj1,Site))*toITensor(sites.op("Proj", j, {"State",s}))*Aj1).cplx();
+            auto z = (dag(prime(Aj1,Site))*toITensor(B->proj(j,s,args))*Aj1).cplx();
             prob[s-1] = (z.real());
                 
             if(z.real() > 1.00000001 || z.real() < 0.  )
@@ -81,12 +79,11 @@ collapse(MPSt<Tensor>& psi,
             }
             
         //project into product state
-        //psi.Anc(j) = B->newstate(j,st,args);
+        psi.Anc(j) = B->newstate(j,st,args);
         auto sj = sites(j);
         if(j < N)
             {
-            Aj2 = Aj2 * dag(toITensor(setElt(sj(st))))*Aj1;
-            //Aj2 *= dag(toITensor(B->state(j,st,args)))*Aj1;
+            Aj2 *= dag(toITensor(B->state(j,st,args)))*Aj1;
             Aj2 *=1./std::sqrt(prob[st-1]);
             }
             

@@ -1,0 +1,25 @@
+input
+{
+Nx = 12
+Ny = 1
+U = 1.0
+V1 = 0.0
+t1 = 1.0
+t2 = 0.0
+periodic = yes
+lattice_type = square
+
+beta = 2.0
+tau = 0.01
+
+maxm = 2000
+cutoff = 1E-9
+
+realstep = yes
+
+hz = 0
+nmetts = 10000
+nwarm = 10
+realstep = no
+
+}
