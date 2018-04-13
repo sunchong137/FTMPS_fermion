@@ -7,6 +7,8 @@
 #include "itensor/all_basic.h"
 #include "itensor/util/autovector.h"
 
+using namespace std;
+
 namespace itensor {
 
 template <typename Tensor>
@@ -35,7 +37,6 @@ collapse(MPSt<Tensor>& psi,
         if(j==1) Aj1 = toITensor(psi.A(j));
         else     Aj1 = Aj2;
             
-            
         Aj2 = toITensor(psi.A(j+1));
 
         //auto prob = Vector(d);
@@ -49,6 +50,7 @@ collapse(MPSt<Tensor>& psi,
             //auto z = (dag(prime(Aj1,Site))*toITensor(B->proj(j,s,args))*Aj1).cplx();
             auto z = (dag(prime(Aj1,Site))*toITensor(sites.op("Proj", j, {"State",s}))*Aj1).cplx();
             prob[s-1] = (z.real());
+            //cout << j << "prob" << s-1 << z.real() << endl;
                 
             if(z.real() > 1.00000001 || z.real() < 0.  )
             {
@@ -81,11 +83,16 @@ collapse(MPSt<Tensor>& psi,
             }
             
         //project into product state
+        
         //psi.Anc(j) = B->newstate(j,st,args);
         auto sj = sites(j);
+        //psi.Anc(j) = setElt(sj(st));
+        auto thes = setElt(sj(st));
+        psi.setA(j,thes);
+        
         if(j < N)
             {
-            Aj2 = Aj2 * dag(toITensor(setElt(sj(st))))*Aj1;
+            Aj2 *=  dag(toITensor(setElt(sj(st))))*Aj1;
             //Aj2 *= dag(toITensor(B->state(j,st,args)))*Aj1;
             Aj2 *=1./std::sqrt(prob[st-1]);
             }

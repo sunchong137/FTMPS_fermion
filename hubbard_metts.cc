@@ -10,9 +10,6 @@
 using namespace std;
 using namespace itensor;
 
-using TensorT = ITensor;
-using MPOT = MPOt<TensorT>;
-using MPST = MPSt<TensorT>;
 
 int 
 main(int argc, char* argv[])
@@ -43,9 +40,6 @@ main(int argc, char* argv[])
     auto tau = in.getReal("tau",0.1);
     auto nwarm = in.getInt("nwarm",5);
     
-    //Real Jxy = 1;
-    //Real Jz = 1;
-
     string lattice_type = "square";
 
     auto N = Nx*Ny;
@@ -58,11 +52,11 @@ main(int argc, char* argv[])
     Args args;
     args.add("Nx",Nx);
     args.add("Ny",Ny);
-    args.add("hz",hz);
+    //args.add("hz",hz);
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     args.add("YPeriodic",false);
-    args.add("hx",0.);
+    //args.add("hx",0.);
 
     Print(args);
 
@@ -77,14 +71,12 @@ main(int argc, char* argv[])
         ampo += U, "Nupdn", i;
     }
 
-    for(auto b : lattice)
+    for(int i=1;i<N;++i)
         {
-        auto s1 = b.s1,
-        s2 = b.s2;
-        ampo += -t1,"Cdagup",s1,"Cup",s2;
-        ampo += -t1,"Cdagup",s2,"Cup",s1;
-        ampo += -t1,"Cdagdn",s1,"Cdn",s2;
-        ampo += -t1,"Cdagdn",s2,"Cdn",s1;
+        ampo += -t1,"Cdagup",i,"Cup",i+1;
+        ampo += -t1,"Cdagup",i+1,"Cup",i;
+        ampo += -t1,"Cdagdn",i,"Cdn",i+1;
+        ampo += -t1,"Cdagdn",i+1,"Cdn",i;
         }
     
     auto mu = U/2;
@@ -159,11 +151,13 @@ main(int argc, char* argv[])
     targs.add("Cutoff",cutoff);
         
     auto obs = TStateObserver<IQTensor>(psi);
-    //auto obs = TStateObserver<TensorT>(psi);
 
     for(int step = 1; step <= (nwarm+nmetts); ++step)
         {
         psi.position(1);
+        //cout << "********** Before time evolution*********************\n";
+        //cout << psi << endl;
+        //cout << "*******************************\n";
         args.add("Step",step);
 
         if(verbose)
@@ -183,7 +177,7 @@ main(int argc, char* argv[])
         for(int tt=1; tt<=nt; ++tt)
             {
             
-            printfln("time step %d", tt);
+            //printfln("time step %d", tt);
             if(realstep)
                 {
                 psi = exactApplyMPO(expH,psi,args);
@@ -223,7 +217,7 @@ main(int argc, char* argv[])
             //auto en = overlap(psi,H,psi);
             en_stat.putin(en);
             auto avgEn = en_stat.avg();
-            printfln("Energy of METTS %d = %.14f",step-nwarm,en);
+            printfln("Energy of METTS per site %d = %.14f",step-nwarm,en/N);
             printfln("Average energy = %.14f %.3E",avgEn,en_stat.err());
             printfln("Average energy per site = %.14f %.3E",avgEn/N,en_stat.err()/N);
             
@@ -261,6 +255,9 @@ main(int argc, char* argv[])
 
             }
 
+        //cout << "********** Before collapse*********************\n";
+        //cout << psi << endl;
+        //cout << "*******************************\n";
         // Collapse into product state
         auto cps = collapse(psi,basis,args);
         for(int j = 1; j <= N; ++j)
