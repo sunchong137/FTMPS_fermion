@@ -13,6 +13,7 @@ using MPST = MPSt<TensorT>;
 double** get_rdm1up(MPST psi, int N);
 double** get_rdm1dn(MPST psi, int N);
 double *get_rdm2diag(MPST psi, int N);
+double*** get_rdm1s(MPST psi, int N);
 
 
 int 
@@ -125,8 +126,8 @@ main(int argc, char* argv[])
     //
     // density matrix for test ****************
     //  
-    int corrleft = 3;
-    int corrright = 3;
+    int corrleft = 2;
+    int corrright = 5;
     int lind = 2*corrleft-1;
     int rind = 2*corrright-1;
     auto dmpoup = AutoMPO(sites);
@@ -251,8 +252,11 @@ main(int argc, char* argv[])
 
         auto** rdm1up = get_rdm1up(psi, N);
         auto** rdm1dn = get_rdm1dn(psi, N);
+        auto*** rdm1s = get_rdm1s(psi, N);
         cout << "spin up:    " << rdm1up[corrleft-1][corrright-1] << endl;
+        cout << "spin up(new):    " << rdm1s[0][corrleft-1][corrright-1] << endl;
         cout << "spin down:  " << rdm1dn[corrleft-1][corrright-1] << endl;
+        cout << "spin down(new):  " << rdm1s[1][corrleft-1][corrright-1] << endl;
 
         //
         // Measure density matrix up
@@ -275,60 +279,6 @@ main(int argc, char* argv[])
         
         ////////////////////////////////////END TEST ////////////////////////////////////////
         
-        //
-        //
-        //// 
-        //// Calculate correlator up
-        ////
-        //auto AdagupF_i = sites.op("Adagup*F", lind);
-        //auto Aup_j = sites.op("Aup", rind);
-        //psi.position(lind);
-        //auto ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
-        //auto Corrup = psi.A(lind)*AdagupF_i*dag(prime(psi.A(lind),Site,ir));
-        //for(int k=lind+1; k<rind; ++k)
-        //    {
-        //    Corrup *= psi.A(k);
-        //    Corrup *= sites.op("F", k);
-        //    Corrup *= dag(prime(psi.A(k)));
-        //    }
-        //Corrup *= psi.A(rind);
-        //Corrup *= Aup_j;
-        //auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link); 
-        //Corrup *= dag(prime(psi.A(rind),jl,Site)); 
-
-        //
-        //auto djw = Corrup.real();
-        //printfln("\n <a^+_1 a_2> ---jw UP %.4f %.20f",bb,djw);
-
-        ////
-        //// Measure density matrix down
-        ////
-        //auto ddn = overlap(psi, Ddn, psi);
-        //printfln("\n <a^+_1 a_2> DOWN  %.4f %.20f",bb,ddn);
-        //println();
-        //
-        //// 
-        //// Calculate correlator down
-        ////
-        //auto Adagdn_i = sites.op("Adagdn", lind);
-        //auto AdnF_j = sites.op("F*Adn", rind);
-        //psi.position(lind);
-        //ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
-        //auto Corrdn = psi.A(lind)*Adagdn_i*dag(prime(psi.A(lind),Site,ir));
-        //for(int k=lind+1; k<rind; ++k)
-        //    {
-        //    Corrdn *= psi.A(k);
-        //    Corrdn *= sites.op("F", k);
-        //    Corrdn *= dag(prime(psi.A(k)));
-        //    }
-        //Corrdn *= psi.A(rind);
-        //Corrdn *= AdnF_j;
-        //jl = commonIndex(psi.A(rind), psi.A(rind-1), Link); 
-        //Corrdn *= dag(prime(psi.A(rind),jl,Site)); 
-        //
-        //djw = Corrdn.real();
-        //printfln("\n <a^+_1 a_2> ---jw DOWN %.4f %.20f",bb,djw);
-
         }
 
     std::ofstream enf("/home/sunchong/work/finiteTMPS/tests/chkdr/en_U" + std::to_string(U) + ".dat");
@@ -495,4 +445,85 @@ double *get_rdm2diag(MPST psi, int N)
 
     return rdm2;
     }
+
+
+double*** get_rdm1s(MPST psi, int N)
+    {
+    // N is the number of sites
+    // return a (2,N,N) array with to store the 1RDM. 2 accounts for spin freedom
+    // initialization
+    auto sites = psi.sites();
+    double*** rdm1 = 0;
+    rdm1 = new double**[2];
+    for(int i=0; i<2; ++i)
+        {
+        rdm1[i] = new double*[N];
+        for(int j=0; j<N; ++j)
+            rdm1[i][j] = new double[N];
+        }
+    
+    // off-diagonal terms
+    int lind, rind, k;
+    for(int i=1; i<N; ++i)
+        {
+        lind = 2*i-1;
+        auto AdagupF_i = sites.op("Adagup*F", lind);
+        auto Adagdn_i = sites.op("Adagdn", lind);
+        psi.position(lind);
+        auto ir = commonIndex(psi.A(lind), psi.A(lind+1), Link);
+        auto Corrup = psi.A(lind)*AdagupF_i*dag(prime(psi.A(lind),Site,ir));
+        auto Corrdn = psi.A(lind)*Adagdn_i*dag(prime(psi.A(lind),Site,ir));
+        for(int j=i+1; j<=N; ++j)
+            {
+            rind = 2*j-1;
+            auto Aup_j = sites.op("Aup", rind);
+            auto AdnF_j = sites.op("F*Adn", rind);
+            //first apply F to the ancilla - (rind-1) site
+            k = 2*j-2;
+            Corrup *= psi.A(k);
+            Corrup *= sites.op("F", k);
+            Corrup *= dag(prime(psi.A(k)));
+            Corrdn *= psi.A(k);
+            Corrdn *= sites.op("F", k);
+            Corrdn *= dag(prime(psi.A(k)));
+            //measure the correlation function
+            auto Corrupij = Corrup * psi.A(rind);
+            Corrupij *= Aup_j;
+            auto Corrdnij = Corrdn * psi.A(rind);
+            Corrdnij *= AdnF_j;
+            auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link);
+            Corrupij *= dag(prime(psi.A(rind),jl,Site));
+            Corrdnij *= dag(prime(psi.A(rind),jl,Site));
+            
+            rdm1[0][i-1][j-1] = Corrupij.real();
+            rdm1[0][j-1][i-1] = Corrupij.real();
+            rdm1[1][i-1][j-1] = Corrdnij.real();
+            rdm1[1][j-1][i-1] = Corrdnij.real();
+            // apply F to the rind site
+            k = rind;
+            Corrup *= psi.A(k);
+            Corrup *= sites.op("F", k);
+            Corrup *= dag(prime(psi.A(k)));
+            Corrdn *= psi.A(k);
+            Corrdn *= sites.op("F", k);
+            Corrdn *= dag(prime(psi.A(k)));
+            }
+        }
+    
+    // diagonal terms
+    for (int i=1; i<=N; ++i)
+        {
+        int ind = 2*i-1;
+        psi.position(ind);
+
+        auto resup = psi.A(ind)*sites.op("Nup", ind)*dag(prime(psi.A(ind), Site));
+        auto resdn = psi.A(ind)*sites.op("Ndn", ind)*dag(prime(psi.A(ind), Site));
+        rdm1[0][i-1][i-1] = resup.real();
+        rdm1[1][i-1][i-1] = resdn.real();
+        }
+    
+    return rdm1;
+
+    }
+
 

@@ -1,15 +1,15 @@
 input
 {
-Nx = 12
+Nx = 6
 Ny = 1
-U = 1.0
+U = 2.0
 V1 = 0.0
 t1 = 1.0
 t2 = 0.0
 periodic = yes
 lattice_type = square
 
-beta = 2.0
+beta = 1.0
 tau = 0.01
 
 maxm = 2000
@@ -20,6 +20,6 @@ realstep = yes
 hz = 0
 nmetts = 10000
 nwarm = 10
-realstep = no
+realstep = yes
 
 }
