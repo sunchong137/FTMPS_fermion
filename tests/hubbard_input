@@ -1,0 +1,23 @@
+input
+{
+hamfile = hubfile.txt
+Nx = 6
+Ny = 1
+Npart =6
+U = 0
+mu = 0.0
+V1 = 0.0
+t1 = 1.0
+t2 = 0.0
+mu = 2.0
+periodic = no
+lattice_type = square
+
+beta = 10.0
+tau = 0.01
+
+maxm = 2000
+cutoff = 1E-9
+
+realstep = yes
+}
