@@ -87,7 +87,11 @@ main(int argc, char* argv[])
         int s1 = 2*i-1;
         int s2 = 2*j-1;
         file >> htemp;
-        ampo += htemp, "Cdagup",s1,"Cup",s2;
+        //cout << format("%.14f  ", htemp) << endl;
+        if(i==j)
+            ampo += htemp, "Nup", s1;
+        else
+            ampo += htemp, "Cdagup",s1,"Cup",s2;
         } 
     // spin down
     for (int i=1; i<=N; ++i)
@@ -96,8 +100,10 @@ main(int argc, char* argv[])
         int s1 = 2*i-1;
         int s2 = 2*j-1;
         file >> htemp;
-        //println("i = ",i, ", j = ", j, ", hij = ", htemp);
-        ampo += htemp, "Cdagdn",s1,"Cdn",s2;
+        if(i==j)
+            ampo += htemp, "Ndn", s1;
+        else
+            ampo += htemp, "Cdagdn",s1,"Cdn",s2;
         } 
 
     //mu = U/2;
@@ -106,6 +112,7 @@ main(int argc, char* argv[])
         int s1 = 2*i-1;
         ampo += -mu, "Nup", s1;
         ampo += -mu, "Ndn", s1;
+        
     }
     //cout << ampo << endl;
     auto H = MPOT(ampo);
@@ -186,12 +193,7 @@ main(int argc, char* argv[])
         printfln("Doing %d steps of tau=%f",nt,tau);
 
     auto targs = args;
-
     auto Betas = Vector(nt);
-    //auto En = Vector(nt);
-    //auto Nn = Vector(nt);
-    //double en = 0;
-
     Real tsofar = 0;
     for(int tt = 1; tt <= nt; ++tt)
         {
@@ -209,34 +211,13 @@ main(int argc, char* argv[])
         targs.add("TimeStepNum",tt);
         targs.add("Time",tsofar);
         targs.add("TotalTime",ttotal);
+        obs.measure(targs);
         if(verbose==true)
             obs.measure(targs);
 
         //Record beta value
         auto bb = (2*tsofar);
         Betas(tt-1) = bb;
-
-        //
-        // Measure Energy 
-        //
-        //en = overlap(psi,H,psi);
-        //if(verbose==true)
-        //    printfln("\nEnergy/N %.4f %.20f",bb,en/N);
-        //En(tt-1) = en/N;
-
-        //
-        // Measure total particle number
-        //
-
-        //auto npart = overlap(psi, Ntot, psi);
-        //if(verbose==true)
-        //    printfln("\nNtot %.4f  %.6f", bb, npart);
-        //Nn(tt-1) = npart;
-
-        //
-        // Measure 1RDM and 2RDM
-        //
-            
         }
     auto*** rdm1s = get_rdm1s(psi, N);
     auto* rdm2=get_rdm2diag(psi, N);
@@ -480,11 +461,11 @@ double*** get_rdm1s(MPST psi, int N)
             auto jl = commonIndex(psi.A(rind), psi.A(rind-1), Link);
             Corrupij *= dag(prime(psi.A(rind),jl,Site));
             Corrdnij *= dag(prime(psi.A(rind),jl,Site));
-            
-            rdm1[0][i-1][j-1] = Corrupij.real();
-            rdm1[0][j-1][i-1] = Corrupij.real();
-            rdm1[1][i-1][j-1] = Corrdnij.real();
-            rdm1[1][j-1][i-1] = Corrdnij.real();
+                
+            rdm1[0][i-1][j-1] = Corrupij.cplx().real();
+            rdm1[0][j-1][i-1] = Corrupij.cplx().real();
+            rdm1[1][i-1][j-1] = Corrdnij.cplx().real();
+            rdm1[1][j-1][i-1] = Corrdnij.cplx().real();
             // apply F to the rind site
             k = rind;
             Corrup *= psi.A(k);
@@ -504,10 +485,61 @@ double*** get_rdm1s(MPST psi, int N)
 
         auto resup = psi.A(ind)*sites.op("Nup", ind)*dag(prime(psi.A(ind), Site));
         auto resdn = psi.A(ind)*sites.op("Ndn", ind)*dag(prime(psi.A(ind), Site));
-        rdm1[0][i-1][i-1] = resup.real();
-        rdm1[1][i-1][i-1] = resdn.real();
+        rdm1[0][i-1][i-1] = resup.cplx().real();
+        rdm1[1][i-1][i-1] = resdn.cplx().real();
         }
-    
+
+    ///////////TEST////////////
+    //double*** tdm = 0;
+    //tdm = new double**[2];
+    //for(int i=0; i<2; ++i)
+    //    {
+    //    tdm[i] = new double*[N];
+    //    for(int j=0; j<N; ++j)
+    //        tdm[i][j] = new double[N];
+    //    }
+    //
+    //for(int i=1; i<=N; ++i)
+    //for(int j=1; j<=N; ++j)
+    //    {
+    //    int s1 = 2*i-1;
+    //    int s2 = 2*j-1;
+    //    auto ampo = AutoMPO(sites);
+    //    ampo += 1, "Cdagup", s1, "Cup", s2;
+    //    auto D = MPOT(ampo);
+    //    tdm[0][i-1][j-1] = overlap(psi, D, psi); 
+    //    }
+    //for(int i=1; i<=N; ++i)
+    //for(int j=1; j<=N; ++j)
+    //    {
+    //    int s1 = 2*i-1;
+    //    int s2 = 2*j-1;
+    //    auto ampo = AutoMPO(sites);
+    //    ampo += 1, "Cdagdn", s1, "Cdn", s2;
+    //    auto D = MPOT(ampo);
+    //    tdm[1][i-1][j-1] = overlap(psi, D, psi); 
+    //    }
+    //cout << "----------------------MPO-----------------------\n";
+    //for(int s=0; s<2; ++s)
+    //for(int i=0; i<N; ++i)
+    //    {
+    //    for(int j=0; j<N; ++j)
+    //        {
+    //        cout << tdm[s][i][j] << "  ";
+    //        }
+    //    cout << endl;
+    //    }
+    //cout << "----------------------JW-----------------------\n";
+    //for(int s=0; s<2; ++s)
+    //for(int i=0; i<N; ++i)
+    //    {
+    //    for(int j=0; j<N; ++j)
+    //        {
+    //        cout << tdm[s][i][j] << "  ";
+    //        }
+    //    cout << endl;
+    //    }
+    ///////////////////////////
     return rdm1;
 
     }
