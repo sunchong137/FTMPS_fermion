@@ -32,6 +32,7 @@ main(int argc, char* argv[])
     auto input = InputGroup(argv[1],"input");
 
     auto hamfile = input.getString("hamfile");
+    auto impidfile = input.getString("impsite");
     auto outdir = input.getString("outdir");
     auto N = input.getInt("N",10);
     auto Nimp = input.getInt("Nimp",1);
@@ -66,9 +67,17 @@ main(int argc, char* argv[])
     //////////////////
     // Coulomb term //
     //////////////////
+    //for(int i=1; i<=Nimp; ++i ) 
+    //{
+    //    int s1 = 2*i-1;
+    //    ampo += U, "Nupdn", s1;
+    //}
+    ifstream impf(impidfile);
+    int imp_id;
     for(int i=1; i<=Nimp; ++i ) 
     {
-        int s1 = 2*i-1;
+        impf >> imp_id;
+        int s1 = 2*imp_id-1;
         ampo += U, "Nupdn", s1;
     }
     ///////////////////////////
