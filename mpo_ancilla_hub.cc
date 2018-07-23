@@ -101,7 +101,6 @@ main(int argc, char* argv[])
         ampo += -1*mu, "Ndn", s1;
     }
 
-    cout << ampo << endl;
     auto H = MPOT(ampo);
 
     ///////////////////////////////////////////////////
@@ -250,25 +249,6 @@ main(int argc, char* argv[])
         }
     // end time evolution
 
-    //
-    //write to file
-    //
-    std::ofstream enf(outdir+"en_U" + std::to_string(U) + ".dat");
-    std::ofstream npartf(outdir+"npart_U" + std::to_string(U) + ".dat");
-    std::ofstream doccf(outdir+"docc_U" + std::to_string(U) + ".dat");
-    for(auto n : range(Betas))
-        {
-        enf << format("%.14f %.14f\n",Betas(n),En(n));
-        npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
-        doccf << format("%.14f %.14f\n",Betas(n),Don(n));
-        }
-
-    enf.close();
-    npartf.close();
-    doccf.close();
-
-    writeToFile(outdir+"/chkdr/sites_U"+std::to_string(U),sites);
-    writeToFile(outdir+"/chkdr/psi_U"+std::to_string(U),psi);
 
     return 0;
     }

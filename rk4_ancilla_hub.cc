@@ -45,17 +45,14 @@ main(int argc, char* argv[])
     auto realstep = input.getYesNo("realstep",false);
     auto verbose = input.getYesNo("verbose",false);
 
-    //auto N = Nx*Ny;
-
     Args args;
     args.add("N",N);
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     args.add("Verbose",verbose);
+    args.add("Normalize",false);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
-    //auto sites = Hubbard(2*N, {"ConserveNf",true,"ConserveSz", true});
-    //auto sites = Hubbard(2*N);
 
     
     ////////////////////////////////////////////////////////
@@ -124,28 +121,6 @@ main(int argc, char* argv[])
     auto dompo = AutoMPO(sites);
     dompo += 1.0, "Nupdn", 1;
     auto Docc = MPOT(dompo);
-    ////////////////////////////////////////////////////
-    //                 time evolution                 //
-    ////////////////////////////////////////////////////
-
-    MPOT expHa,expHb;
-    MPOT expH;
-
-    if(realstep)
-        {
-        expH = toExpH<TensorT>(ampo,tau);
-        }
-    else
-        {
-        auto taua = tau/2.*(1.+1._i);
-        auto taub = tau/2.*(1.-1._i);
-        println("Making expHa and expHb");
-        expHa = toExpH<TensorT>(ampo,taua);
-        expHb = toExpH<TensorT>(ampo,taub);
-        }
-    
-
-
 
     //
     // Make initial 'wavefunction' which is a product
@@ -208,10 +183,14 @@ main(int argc, char* argv[])
         {
         
         // 4th-order Runge-Kutta
-        auto k1 = -tau*exactApplyMPO(H, psi, args);
-        auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1), args);
-        auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2), args);
-        auto k4 = -tau*exactApplyMPO(H, sum(psi, k3), args);
+        //auto k1 = -tau*exactApplyMPO(H, psi, args);
+        //auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1), args);
+        //auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2), args);
+        //auto k4 = -tau*exactApplyMPO(H, sum(psi, k3), args);
+        auto k1 = -tau*fitApplyMPO(psi, H,  args);
+        auto k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1), H, args);
+        auto k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2), H, args);
+        auto k4 = -tau*fitApplyMPO(sum(psi, k3), H, args);
         psi = sum(psi, sum(k1, sum(2.*k2, sum(2.*k3, k4)))*(1./6.));
         //
 
@@ -249,26 +228,6 @@ main(int argc, char* argv[])
 
         }
     // end time evolution
-
-    //
-    //write to file
-    ////
-    //std::ofstream enf(outdir+"en_U" + std::to_string(U) + ".dat");
-    //std::ofstream npartf(outdir+"npart_U" + std::to_string(U) + ".dat");
-    //std::ofstream doccf(outdir+"docc_U" + std::to_string(U) + ".dat");
-    //for(auto n : range(Betas))
-    //    {
-    //    enf << format("%.14f %.14f\n",Betas(n),En(n));
-    //    npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
-    //    doccf << format("%.14f %.14f\n",Betas(n),Don(n));
-    //    }
-
-    //enf.close();
-    //npartf.close();
-    //doccf.close();
-
-    //writeToFile(outdir+"/chkdr/sites_U"+std::to_string(U),sites);
-    //writeToFile(outdir+"/chkdr/psi_U"+std::to_string(U),psi);
 
     return 0;
     }

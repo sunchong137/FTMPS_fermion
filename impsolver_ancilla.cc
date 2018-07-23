@@ -216,7 +216,6 @@ main(int argc, char* argv[])
             psi = exactApplyMPO(expHb,psi,args);
             }
         psi.Aref(1) /= norm(psi.A(1));
-        //cout << norm(psi);
         tsofar += tau;
         targs.add("TimeStepNum",tt);
         targs.add("Time",tsofar);
@@ -235,19 +234,6 @@ main(int argc, char* argv[])
     auto nelec = overlap(psi, Ntot, psi);
     printfln("\nFinite T MPS (ancilla) calculation summery: impurity energy/N %.12f;  total electron number: %.4f",energy/N, nelec);
 
-    //
-    // save energy and particle number to file
-    //
-    //std::ofstream enf("/home/sunchong/work/finiteTMPS/tests/chkdr/en_U" + std::to_string(U) + ".dat");
-    //std::ofstream npartf("/home/sunchong/work/finiteTMPS/tests/chkdr/npart_U" + std::to_string(U) + ".dat");
-    //for(auto n : range(Betas))
-    //    {
-    //    enf << format("%.14f %.14f\n",Betas(n),En(n));
-    //    npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
-    //    }
-    //enf.close();
-    //npartf.close();
-  
     //
     //save energy, rdm1 and rdm2 to files
     //
@@ -270,9 +256,6 @@ main(int argc, char* argv[])
     for(int i=0; i<N; ++i)
         rdm2f << format("%.14f  ", rdm2[i]);
     rdm2f.close();
-
-    //writeToFile("chkdr/sites",sites);
-    //writeToFile("chkdr/psi",psi);
 
     return 0;
     }
@@ -499,57 +482,6 @@ double*** get_rdm1s(MPST psi, int N)
         rdm1[1][i-1][i-1] = resdn.cplx().real();
         }
 
-    ///////////TEST////////////
-    //double*** tdm = 0;
-    //tdm = new double**[2];
-    //for(int i=0; i<2; ++i)
-    //    {
-    //    tdm[i] = new double*[N];
-    //    for(int j=0; j<N; ++j)
-    //        tdm[i][j] = new double[N];
-    //    }
-    //
-    //for(int i=1; i<=N; ++i)
-    //for(int j=1; j<=N; ++j)
-    //    {
-    //    int s1 = 2*i-1;
-    //    int s2 = 2*j-1;
-    //    auto ampo = AutoMPO(sites);
-    //    ampo += 1, "Cdagup", s1, "Cup", s2;
-    //    auto D = MPOT(ampo);
-    //    tdm[0][i-1][j-1] = overlap(psi, D, psi); 
-    //    }
-    //for(int i=1; i<=N; ++i)
-    //for(int j=1; j<=N; ++j)
-    //    {
-    //    int s1 = 2*i-1;
-    //    int s2 = 2*j-1;
-    //    auto ampo = AutoMPO(sites);
-    //    ampo += 1, "Cdagdn", s1, "Cdn", s2;
-    //    auto D = MPOT(ampo);
-    //    tdm[1][i-1][j-1] = overlap(psi, D, psi); 
-    //    }
-    //cout << "----------------------MPO-----------------------\n";
-    //for(int s=0; s<2; ++s)
-    //for(int i=0; i<N; ++i)
-    //    {
-    //    for(int j=0; j<N; ++j)
-    //        {
-    //        cout << tdm[s][i][j] << "  ";
-    //        }
-    //    cout << endl;
-    //    }
-    //cout << "----------------------JW-----------------------\n";
-    //for(int s=0; s<2; ++s)
-    //for(int i=0; i<N; ++i)
-    //    {
-    //    for(int j=0; j<N; ++j)
-    //        {
-    //        cout << tdm[s][i][j] << "  ";
-    //        }
-    //    cout << endl;
-    //    }
-    ///////////////////////////
     return rdm1;
 
     }
