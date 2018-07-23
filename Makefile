@@ -11,9 +11,9 @@ HEADERS=
 ifdef app
 APP=$(app)
 else
-#APP=triangular_metts
-#APP=hubbard_metts
-APP=mpo_ancilla_hub
+APP=bdg_hf_ancilla
+#APP=mpo_ancilla_hub
+#APP=impsolver_ancilla
 endif
 
 TENSOR_HEADERS=

@@ -29,11 +29,12 @@ main(int argc, char* argv[])
         }
     auto input = InputGroup(argv[1],"input");
 
-    auto N = input.getInt("N",1);
+    auto N = input.getInt("N",10);
     auto U = input.getReal("U", 1.0);
     auto outdir = input.getString("outdir");
     auto mu = input.getReal("mu", 1.0);
     auto t1 = input.getReal("t", 1.0);
+    auto delta = input.getReal("delta", 1.0);
     auto periodic = input.getYesNo("periodic",false);
 
     auto beta = input.getReal("beta",1);
@@ -89,7 +90,6 @@ main(int argc, char* argv[])
         ampo += -1*t1,"Cdagdn",s1,"Cdn",s2;
         ampo += -1*t1,"Cdagdn",s2,"Cdn",s1;
     }
-    auto HE = MPO(ampo);
     /////////////////////////////
     // chemical potential term //
     /////////////////////////////
@@ -100,8 +100,19 @@ main(int argc, char* argv[])
         ampo += -1*mu, "Nup", s1;
         ampo += -1*mu, "Ndn", s1;
     }
+    auto HE = MPOT(ampo);
 
-    cout << ampo << endl;
+    /////////////////////////////
+    //      pairing term       //
+    /////////////////////////////
+    for (int i=1; i<=N; ++i)
+    {
+        int s1 = 2*i-1;
+        ampo += delta, "Cdagup", s1, "Cdagdn", s1;
+        ampo += delta, "Cdn", s1, "Cup", s1;
+    }
+
+
     auto H = MPOT(ampo);
 
     ///////////////////////////////////////////////////
@@ -115,6 +126,7 @@ main(int argc, char* argv[])
         nmpo += 1.0, "Ndn", s1;
     }
 
+   
     auto Ntot = MPOT(nmpo);
 
 
@@ -125,6 +137,22 @@ main(int argc, char* argv[])
     auto dompo = AutoMPO(sites);
     dompo += 1.0, "Nupdn", 1;
     auto Docc = MPOT(dompo);
+
+    /////////////////////////////////////////////////////
+    //           pairing order on first site           //
+    /////////////////////////////////////////////////////
+
+    auto pmpo = AutoMPO(sites);
+    for (int i=1; i<=N; ++i)
+    {
+        int s1 = 2*i-1;
+        pmpo += 1., "Cdagup", s1, "Cdagdn", s1;
+        pmpo += 1., "Cdn", s1, "Cup", s1;
+    }
+
+    auto pairing = MPOT(pmpo);
+
+    
     ////////////////////////////////////////////////////
     //                 time evolution                 //
     ////////////////////////////////////////////////////
@@ -222,7 +250,6 @@ main(int argc, char* argv[])
         targs.add("TotalTime",ttotal);
         obs.measure(targs);
 
-
         //Record beta value
         auto bb = (2*tsofar);
         Betas(tt-1) = bb;
@@ -246,7 +273,13 @@ main(int argc, char* argv[])
         auto dos = overlap(psi, Docc, psi);
         printfln("###### Double occupancy %.4f  %.12f",bb, dos);
         Don(tt-1) = dos;
-
+        //
+        // Measure double occupancy
+        //
+        auto pairorder = overlap(psi, pairing, psi);
+        //psin = exactApplyMPO(pairing,psi,args);
+        //auto pairorder = overlap(psi, psin);
+        printfln("###### pairing             %.4f  %.6f", bb,pairorder/N);
         }
     // end time evolution
 
@@ -267,8 +300,8 @@ main(int argc, char* argv[])
     npartf.close();
     doccf.close();
 
-    writeToFile(outdir+"/chkdr/sites_U"+std::to_string(U),sites);
-    writeToFile(outdir+"/chkdr/psi_U"+std::to_string(U),psi);
+    //writeToFile(outdir+"/chkdr/sites_U"+std::to_string(U),sites);
+    //writeToFile(outdir+"/chkdr/psi_U"+std::to_string(U),psi);
 
     return 0;
     }

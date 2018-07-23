@@ -34,7 +34,7 @@ main(int argc, char* argv[])
     auto hamfile = input.getString("hamfile");
     auto impidfile = input.getString("impsite");
     auto outdir = input.getString("outdir");
-    auto N = input.getInt("N",10);
+    auto N = input.getInt("N",1);
     auto Nimp = input.getInt("Nimp",1);
     auto U = input.getReal("U", 1.0);
     auto mu = input.getReal("mu", 1.0);
@@ -216,6 +216,7 @@ main(int argc, char* argv[])
             psi = exactApplyMPO(expHb,psi,args);
             }
         psi.Aref(1) /= norm(psi.A(1));
+        //cout << norm(psi);
         tsofar += tau;
         targs.add("TimeStepNum",tt);
         targs.add("Time",tsofar);
