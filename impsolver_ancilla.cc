@@ -55,6 +55,7 @@ main(int argc, char* argv[])
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     args.add("Verbose",verbose);
+    args.add("Normalize",false);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
 

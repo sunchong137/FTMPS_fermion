@@ -183,15 +183,23 @@ main(int argc, char* argv[])
         {
         
         // 4th-order Runge-Kutta
-        //auto k1 = -tau*exactApplyMPO(H, psi, args);
-        //auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1), args);
-        //auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2), args);
-        //auto k4 = -tau*exactApplyMPO(H, sum(psi, k3), args);
-        auto k1 = -tau*fitApplyMPO(psi, H,  args);
-        auto k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1), H, args);
-        auto k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2), H, args);
-        auto k4 = -tau*fitApplyMPO(sum(psi, k3), H, args);
-        psi = sum(psi, sum(k1, sum(2.*k2, sum(2.*k3, k4)))*(1./6.));
+        auto k1 = -tau*exactApplyMPO(H, psi, args);
+        auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1), args);
+        auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2), args);
+        auto k4 = -tau*exactApplyMPO(H, sum(psi, k3), args);
+        //auto k1 = -tau*fitApplyMPO(psi, H,  args);
+        //auto k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1, args), H, args);
+        //auto k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2, args), H, args);
+        //auto k4 = -tau*fitApplyMPO(sum(psi, k3, args), H, args);
+
+        auto terms  = vector<MPST>(5);
+        terms.at(0) = psi;
+        terms.at(1) = 1./6.* k1;
+        terms.at(2) = 1./3.* k2;
+        terms.at(3) = 1./3.* k3;
+        terms.at(4) = 1./6.* k4;
+        psi = sum(terms, args);
+        //psi = sum(psi, sum(k1, sum(2.*k2, sum(2.*k3, k4)))*(1./6.));
         //
 
         psi.Aref(1) /= norm(psi.A(1));

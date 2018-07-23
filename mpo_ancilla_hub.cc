@@ -52,6 +52,7 @@ main(int argc, char* argv[])
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     args.add("Verbose",verbose);
+    args.add("Normalize", false);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
     //auto sites = Hubbard(2*N, {"ConserveNf",true,"ConserveSz", true});
@@ -207,12 +208,15 @@ main(int argc, char* argv[])
         {
         if(realstep)
             {
-            psi = exactApplyMPO(expH,psi,args);
+            //psi = exactApplyMPO(expH,psi,args);
+            psi = fitApplyMPO(psi,expH,args);
             }
         else
             {
-            psi = exactApplyMPO(expHa,psi,args);
-            psi = exactApplyMPO(expHb,psi,args);
+            //psi = exactApplyMPO(expHa,psi,args);
+            //psi = exactApplyMPO(expHb,psi,args);
+            psi = fitApplyMPO(psi,expHa,args);
+            psi = fitApplyMPO(psi,expHb,args);
             }
         psi.Aref(1) /= norm(psi.A(1));
         tsofar += tau;
