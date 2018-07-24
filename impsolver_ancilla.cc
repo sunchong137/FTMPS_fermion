@@ -47,6 +47,8 @@ main(int argc, char* argv[])
 
     auto realstep = input.getYesNo("realstep",false);
     auto verbose = input.getYesNo("verbose",false);
+    auto rungekutta = input.getYesNo("rungekutta", true);
+    auto fitmpo = input.getYesNo("fitmpo", true);
 
 
     Args args;
@@ -68,11 +70,6 @@ main(int argc, char* argv[])
     //////////////////
     // Coulomb term //
     //////////////////
-    //for(int i=1; i<=Nimp; ++i ) 
-    //{
-    //    int s1 = 2*i-1;
-    //    ampo += U, "Nupdn", s1;
-    //}
     ifstream impf(impidfile);
     int imp_id;
     for(int i=1; i<=Nimp; ++i ) 
@@ -97,7 +94,6 @@ main(int argc, char* argv[])
         int s1 = 2*i-1;
         int s2 = 2*j-1;
         file >> htemp;
-        //cout << format("%.14f  ", htemp) << endl;
         if(i==j)
             ampo += htemp, "Nup", s1;
         else
@@ -124,7 +120,6 @@ main(int argc, char* argv[])
         ampo += -mu, "Ndn", s1;
         
     }
-    //cout << ampo << endl;
     auto H = MPOT(ampo);
 
     ///////////////////////////////////////////////////
@@ -142,32 +137,33 @@ main(int argc, char* argv[])
     
     
     ////////////////////////////////////////////////////
-    //                 time evolution                 //
+    //                 exponetiate H                  //
     ////////////////////////////////////////////////////
 
-    MPOT expHa,expHb;
-    MPOT expH;
+    //if(rungekutta == false)
+    //{
+        MPOT expHa,expHb;
+        MPOT expH;
+ 
+        if(realstep)
+            {
+            expH = toExpH<TensorT>(ampo,tau);
+            }
+        else
+            {
+            auto taua = tau/2.*(1.+1._i);
+            auto taub = tau/2.*(1.-1._i);
+            if(verbose==true)
+                println("Making expHa and expHb");
+            expHa = toExpH<TensorT>(ampo,taua);
+            expHb = toExpH<TensorT>(ampo,taub);
+            }
+    //}
 
-    if(realstep)
-        {
-        expH = toExpH<TensorT>(ampo,tau);
-        }
-    else
-        {
-        auto taua = tau/2.*(1.+1._i);
-        auto taub = tau/2.*(1.-1._i);
-        if(verbose==true)
-            println("Making expHa and expHb");
-        expHa = toExpH<TensorT>(ampo,taua);
-        expHb = toExpH<TensorT>(ampo,taub);
-        }
 
-
-
-    //
-    // Make initial 'wavefunction' which is a product
-    // of perfect singlets between neighboring sites
-    //
+    /////////////////////////////////////////////////////
+    //           Make initial 'wavefunction'           //
+    /////////////////////////////////////////////////////
     auto psi = MPST(sites);
 
     for(int n = 1; n <= 2*N; n += 2)
@@ -191,8 +187,12 @@ main(int argc, char* argv[])
         psi.Aref(n) *= D;
         }
 
-    auto obs = TStateObserver<TensorT>(psi);
 
+    /////////////////////////////////////////////////////
+    //                 time evolution                  //
+    /////////////////////////////////////////////////////
+
+    auto obs = TStateObserver<TensorT>(psi);
     auto ttotal = beta/2.;
     const int nt = int(ttotal/tau+(1e-9*(ttotal/tau)));
     if(fabs(nt*tau-ttotal) > 1E-9)
@@ -207,15 +207,72 @@ main(int argc, char* argv[])
     Real tsofar = 0;
     for(int tt = 1; tt <= nt; ++tt)
         {
-        if(realstep)
+        // 4th order Runge Kutta
+        if(rungekutta)
             {
-            psi = exactApplyMPO(expH,psi,args);
+            if(fitmpo)
+                {
+                auto k1 = MPST(sites);
+                auto k2 = MPST(sites);
+                auto k3 = MPST(sites);
+                auto k4 = MPST(sites);
+                
+                fitApplyMPO(psi, H, k1, args);
+                k1 = -tau * k1;
+                fitApplyMPO(sum(psi,0.5*k1,args), H, k2, args);
+                k2 = -tau * k2;
+                fitApplyMPO(sum(psi,0.5*k2,args), H, k3, args);
+                k3 = -tau * k3;
+                fitApplyMPO(sum(psi,k3,args), H, k4, args);
+                k4 = -tau * k4;
+                auto terms  = vector<MPST>(5);
+                terms.at(0) = psi;
+                terms.at(1) = 1./6.* k1;
+                terms.at(2) = 1./3.* k2;
+                terms.at(3) = 1./3.* k3;
+                terms.at(4) = 1./6.* k4;
+                psi = sum(terms, args);
+                }
+            else
+                {
+                auto k1 = -tau*exactApplyMPO(H,psi, args);
+                auto k2 = -tau*exactApplyMPO(H,sum(psi,0.5*k1,args), args);
+                auto k3 = -tau*exactApplyMPO(H,sum(psi,0.5*k2,args), args);
+                auto k4 = -tau*exactApplyMPO(H,sum(psi,k3,args), args);
+                auto terms  = vector<MPST>(5);
+                terms.at(0) = psi;
+                terms.at(1) = 1./6.* k1;
+                terms.at(2) = 1./3.* k2;
+                terms.at(3) = 1./3.* k3;
+                terms.at(4) = 1./6.* k4;
+                psi = sum(terms, args);
+                }
             }
+        // MPO evolution
         else
             {
-            psi = exactApplyMPO(expHa,psi,args);
-            psi = exactApplyMPO(expHb,psi,args);
+            if(realstep)
+                {
+                if(fitmpo)
+                    fitApplyMPO(psi,expH,psi,args);
+                else
+                    psi = exactApplyMPO(expH,psi,args);
+                }
+            else
+                {
+                if(fitmpo)
+                    {
+                    fitApplyMPO(psi,expHa,psi,args);
+                    fitApplyMPO(psi,expHb,psi,args);
+                    }
+                else
+                    {
+                    psi = exactApplyMPO(expHa,psi,args);
+                    psi = exactApplyMPO(expHb,psi,args);
+                    }
+                }
             }
+
         psi.Aref(1) /= norm(psi.A(1));
         tsofar += tau;
         targs.add("TimeStepNum",tt);
