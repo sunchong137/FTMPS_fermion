@@ -12,11 +12,12 @@ delta = 1
 periodic = no
 lattice_type = square
 
-beta = 1
-tau = 0.001
+beta = 0.2
+tau = 0.01
 
 maxm = 2000
 cutoff = 1E-12
 
 realstep = yes
+fitmpo = no
 }

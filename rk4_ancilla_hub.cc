@@ -130,6 +130,8 @@ main(int argc, char* argv[])
     // of perfect singlets between neighboring sites
     //
     auto psi = MPST(sites);
+    cout << "here is the initial psi\n"; 
+    cout << psi << endl;
     auto psin = MPST(sites);
 
     for(int n = 1; n <= 2*N; n += 2)
@@ -201,10 +203,10 @@ main(int argc, char* argv[])
             k3 = -tau * k3;
             fitApplyMPO(sum(psi,k3,args), H, k4, args);
             k4 = -tau * k4;
-            //k1 = -tau*fitApplyMPO(psi, H, k1, args);
-            //k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1, args), H, k2, args);
-            //k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2, args), H, k3, args);
-            //k4 = -tau*fitApplyMPO(sum(psi, k3, args), H, k4, args);
+            //k1 = -tau*fitApplyMPO(psi, H, args);
+            //k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1, args), H, args);
+            //k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2, args), H, args);
+            //k4 = -tau*fitApplyMPO(sum(psi, k3, args), H, args);
             auto terms  = vector<MPST>(5);
             terms.at(0) = psi;
             terms.at(1) = 1./6.* k1;
