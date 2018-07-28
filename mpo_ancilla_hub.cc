@@ -1,7 +1,6 @@
 #include "itensor/all.h"
 #include <iostream>
 #include "TStateObserver.h"
-//#include "S2.h"
 
 using namespace std;
 using namespace itensor;
