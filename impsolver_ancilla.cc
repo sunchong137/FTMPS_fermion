@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 #include "TStateObserver.h"
-//#include "S2.h"
 
 using namespace std;
 using namespace itensor;
@@ -20,8 +19,7 @@ double*** get_rdm1s(MPST psi, int N);
 int 
 main(int argc, char* argv[])
     {
-    //printfln("TensorT == %s",(std::is_same<TensorT,ITensor>::value ? "ITensor" : "IQTensor"));
-    println("Starting finite temperature MPS with ancilla");
+    println("Starting finite temperature MPS with ancilla...");
 
     //Get parameter file
     if(argc != 2)
@@ -40,7 +38,7 @@ main(int argc, char* argv[])
     auto mu = input.getReal("mu", 1.0);
 
     auto beta = input.getReal("beta",1);
-    auto tau = input.getReal("tau",0.005);
+    auto tau = input.getReal("tau",0.01);
 
     auto maxm = input.getInt("maxm",1000);
     auto cutoff = input.getReal("cutoff",1E-11);

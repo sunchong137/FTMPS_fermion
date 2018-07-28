@@ -130,8 +130,6 @@ main(int argc, char* argv[])
     // of perfect singlets between neighboring sites
     //
     auto psi = MPST(sites);
-    cout << "here is the initial psi\n"; 
-    cout << psi << endl;
     auto psin = MPST(sites);
 
     for(int n = 1; n <= 2*N; n += 2)
@@ -190,6 +188,7 @@ main(int argc, char* argv[])
         // 4th-order Runge-Kutta
         if(fitmpo)
         {
+            cout << "USING RK4 evolution \n";
             auto k1 = MPST(sites);
             auto k2 = MPST(sites);
             auto k3 = MPST(sites);
@@ -217,6 +216,7 @@ main(int argc, char* argv[])
         }
         else
         {
+            cout << "USING MPO evolution \n";
             auto k1 = -tau*exactApplyMPO(H, psi, args);
             auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1, args), args);
             auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2, args), args);
