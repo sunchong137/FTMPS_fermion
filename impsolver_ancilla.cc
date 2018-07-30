@@ -14,6 +14,8 @@ double** get_rdm1up(MPST psi, int N);
 double** get_rdm1dn(MPST psi, int N);
 double *get_rdm2diag(MPST psi, int N);
 double*** get_rdm1s(MPST psi, int N);
+MPST rk4_fit_1timestep(MPST psi, double tau, MPOT H, Args args);
+MPST rk4_exact_1timestep(MPST psi, double tau, MPOT H, Args args);
 
 
 int 
@@ -210,40 +212,12 @@ main(int argc, char* argv[])
             {
             if(fitmpo)
                 {
-                auto k1 = MPST(sites);
-                auto k2 = MPST(sites);
-                auto k3 = MPST(sites);
-                auto k4 = MPST(sites);
-                
-                fitApplyMPO(psi, H, k1, args);
-                k1 = -tau * k1;
-                fitApplyMPO(sum(psi,0.5*k1,args), H, k2, args);
-                k2 = -tau * k2;
-                fitApplyMPO(sum(psi,0.5*k2,args), H, k3, args);
-                k3 = -tau * k3;
-                fitApplyMPO(sum(psi,k3,args), H, k4, args);
-                k4 = -tau * k4;
-                auto terms  = vector<MPST>(5);
-                terms.at(0) = psi;
-                terms.at(1) = 1./6.* k1;
-                terms.at(2) = 1./3.* k2;
-                terms.at(3) = 1./3.* k3;
-                terms.at(4) = 1./6.* k4;
-                psi = sum(terms, args);
+                if(tt<2) psi = rk4_exact_1timestep(psi, tau, H, args);
+                else psi = rk4_fit_1timestep(psi, tau, H, args);
                 }
             else
                 {
-                auto k1 = -tau*exactApplyMPO(H,psi, args);
-                auto k2 = -tau*exactApplyMPO(H,sum(psi,0.5*k1,args), args);
-                auto k3 = -tau*exactApplyMPO(H,sum(psi,0.5*k2,args), args);
-                auto k4 = -tau*exactApplyMPO(H,sum(psi,k3,args), args);
-                auto terms  = vector<MPST>(5);
-                terms.at(0) = psi;
-                terms.at(1) = 1./6.* k1;
-                terms.at(2) = 1./3.* k2;
-                terms.at(3) = 1./3.* k3;
-                terms.at(4) = 1./6.* k4;
-                psi = sum(terms, args);
+                psi = rk4_exact_1timestep(psi, tau, H, args);
                 }
             }
         // MPO evolution
@@ -543,3 +517,37 @@ double*** get_rdm1s(MPST psi, int N)
     }
 
 
+MPST rk4_fit_1timestep(MPST psi, double tau, MPOT H, Args args)
+    {
+
+    cout << "4th Runge-Kutta with fit MPO\n";
+    auto k1 = -tau*fitApplyMPO(psi, H, args);
+    auto k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1, args), H, args);
+    auto k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2, args), H, args);
+    auto k4 = -tau*fitApplyMPO(sum(psi, k3, args), H, args);
+    auto terms  = vector<MPST>(5);
+    terms.at(0) = psi;
+    terms.at(1) = 1./6.* k1;
+    terms.at(2) = 1./3.* k2;
+    terms.at(3) = 1./3.* k3;
+    terms.at(4) = 1./6.* k4;
+    psi = sum(terms, args);
+    return psi;
+    }   
+
+MPST rk4_exact_1timestep(MPST psi, double tau, MPOT H, Args args)
+    {
+    cout << "4th Runge-Kutta with exact MPO\n";
+    auto k1 = -tau*exactApplyMPO(H, psi, args);
+    auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1, args), args);
+    auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2, args), args);
+    auto k4 = -tau*exactApplyMPO(H, sum(psi, k3, args), args);
+    auto terms  = vector<MPST>(5);
+    terms.at(0) = psi;
+    terms.at(1) = 1./6.* k1;
+    terms.at(2) = 1./3.* k2;
+    terms.at(3) = 1./3.* k3;
+    terms.at(4) = 1./6.* k4;
+    psi = sum(terms, args);
+    return psi;
+    }
