@@ -14,6 +14,8 @@ double** get_rdm1up(MPST psi, int N);
 double** get_rdm1dn(MPST psi, int N);
 double *get_rdm2diag(MPST psi, int N);
 double*** get_rdm1s(MPST psi, int N);
+MPST rk4_fit_1timestep(MPST psi, double tau, MPOT H, Args args);
+MPST rk4_exact_1timestep(MPST psi, double tau, MPOT H, Args args);
 
 
 int 
@@ -45,6 +47,8 @@ main(int argc, char* argv[])
 
     auto realstep = input.getYesNo("realstep",false);
     auto verbose = input.getYesNo("verbose",false);
+    auto rungekutta = input.getYesNo("rungekutta", true);
+    auto fitmpo = input.getYesNo("fitmpo", true);
 
     //auto N = Nx*Ny;
 
@@ -53,6 +57,7 @@ main(int argc, char* argv[])
     args.add("Maxm",maxm);
     args.add("Cutoff",cutoff);
     args.add("Verbose",verbose);
+    args.add("Normalize",false);
 
     auto sites = Hubbard(2*N, {"ConserveNf",false,"ConserveSz", true});
     //auto sites = Hubbard(2*N, {"ConserveNf",true,"ConserveSz", true});
@@ -234,15 +239,53 @@ main(int argc, char* argv[])
     Real tsofar = 0;
     for(int tt = 1; tt <= nt; ++tt)
         {
-        if(realstep)
+        //if(realstep)
+        //    {
+        //    psi = exactApplyMPO(expH,psi,args);
+        //    }
+        //else
+        //    {
+        //    psi = exactApplyMPO(expHa,psi,args);
+        //    psi = exactApplyMPO(expHb,psi,args);
+        //    }
+        if(rungekutta)
             {
-            psi = exactApplyMPO(expH,psi,args);
+            if(fitmpo)
+                {
+                if(tt<2) psi = rk4_exact_1timestep(psi, tau, H, args);
+                else psi = rk4_fit_1timestep(psi, tau, H, args);
+                }
+            else
+                {
+                psi = rk4_exact_1timestep(psi, tau, H, args);
+                }
             }
+        // MPO evolution
         else
             {
-            psi = exactApplyMPO(expHa,psi,args);
-            psi = exactApplyMPO(expHb,psi,args);
+            if(realstep)
+                {
+                if(fitmpo)
+                    fitApplyMPO(psi,expH,psi,args);
+                else
+                    psi = exactApplyMPO(expH,psi,args);
+                }
+            else
+                {
+                if(fitmpo)
+                    {
+                    fitApplyMPO(psi,expHa,psi,args);
+                    fitApplyMPO(psi,expHb,psi,args);
+                    }
+                else
+                    {
+                    psi = exactApplyMPO(expHa,psi,args);
+                    psi = exactApplyMPO(expHb,psi,args);
+                    }
+                }
             }
+
+
         psi.Aref(1) /= norm(psi.A(1));
         tsofar += tau;
         targs.add("TimeStepNum",tt);
@@ -306,3 +349,38 @@ main(int argc, char* argv[])
     return 0;
     }
 
+
+MPST rk4_fit_1timestep(MPST psi, double tau, MPOT H, Args args)
+    {
+
+    cout << "4th Runge-Kutta with fit MPO\n";
+    auto k1 = -tau*fitApplyMPO(psi, H, args);
+    auto k2 = -tau*fitApplyMPO(sum(psi, 0.5*k1, args), H, args);
+    auto k3 = -tau*fitApplyMPO(sum(psi, 0.5*k2, args), H, args);
+    auto k4 = -tau*fitApplyMPO(sum(psi, k3, args), H, args);
+    auto terms  = vector<MPST>(5);
+    terms.at(0) = psi;
+    terms.at(1) = 1./6.* k1;
+    terms.at(2) = 1./3.* k2;
+    terms.at(3) = 1./3.* k3;
+    terms.at(4) = 1./6.* k4;
+    psi = sum(terms, args);
+    return psi;
+    }   
+
+MPST rk4_exact_1timestep(MPST psi, double tau, MPOT H, Args args)
+    {
+    cout << "4th Runge-Kutta with exact MPO\n";
+    auto k1 = -tau*exactApplyMPO(H, psi, args);
+    auto k2 = -tau*exactApplyMPO(H, sum(psi, 0.5*k1, args), args);
+    auto k3 = -tau*exactApplyMPO(H, sum(psi, 0.5*k2, args), args);
+    auto k4 = -tau*exactApplyMPO(H, sum(psi, k3, args), args);
+    auto terms  = vector<MPST>(5);
+    terms.at(0) = psi;
+    terms.at(1) = 1./6.* k1;
+    terms.at(2) = 1./3.* k2;
+    terms.at(3) = 1./3.* k3;
+    terms.at(4) = 1./6.* k4;
+    psi = sum(terms, args);
+    return psi;
+    }
