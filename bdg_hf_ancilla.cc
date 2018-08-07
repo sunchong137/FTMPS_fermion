@@ -100,7 +100,7 @@ main(int argc, char* argv[])
         ampo += -1*mu, "Nup", s1;
         ampo += -1*mu, "Ndn", s1;
     }
-    auto HE = MPOT(ampo);
+    //auto HE = MPOT(ampo);
 
     /////////////////////////////
     //      pairing term       //
@@ -258,7 +258,7 @@ main(int argc, char* argv[])
         //
         // Measure Energy and
         //
-        auto en = overlap(psi,HE,psi);
+        auto en = overlap(psi,H,psi);
         printfln("###### Energy/N         %.4f  %.12f",bb,en/N);
         En(tt-1) = en/N;
         //
@@ -286,19 +286,19 @@ main(int argc, char* argv[])
     //
     //write to file
     //
-    std::ofstream enf(outdir+"en_U" + std::to_string(U) + ".dat");
-    std::ofstream npartf(outdir+"npart_U" + std::to_string(U) + ".dat");
-    std::ofstream doccf(outdir+"docc_U" + std::to_string(U) + ".dat");
-    for(auto n : range(Betas))
-        {
-        enf << format("%.14f %.14f\n",Betas(n),En(n));
-        npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
-        doccf << format("%.14f %.14f\n",Betas(n),Don(n));
-        }
+    //std::ofstream enf(outdir+"en_U" + std::to_string(U) + ".dat");
+    //std::ofstream npartf(outdir+"npart_U" + std::to_string(U) + ".dat");
+    //std::ofstream doccf(outdir+"docc_U" + std::to_string(U) + ".dat");
+    //for(auto n : range(Betas))
+    //    {
+    //    enf << format("%.14f %.14f\n",Betas(n),En(n));
+    //    npartf << format("%.14f %.14f\n",Betas(n),Nn(n));
+    //    doccf << format("%.14f %.14f\n",Betas(n),Don(n));
+    //    }
 
-    enf.close();
-    npartf.close();
-    doccf.close();
+    //enf.close();
+    //npartf.close();
+    //doccf.close();
 
     //writeToFile(outdir+"/chkdr/sites_U"+std::to_string(U),sites);
     //writeToFile(outdir+"/chkdr/psi_U"+std::to_string(U),psi);
