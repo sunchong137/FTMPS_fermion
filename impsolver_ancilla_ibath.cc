@@ -274,7 +274,7 @@ main(int argc, char* argv[])
     //
     std::ofstream enef(outdir + "energy.txt");
     std::ofstream rdm1f(outdir + "rdm1s.txt");
-    enef << format("%.14f  \n", energy);
+    enef << format("%.14f  \n", energy/N);
     enef.close();
     for(int s=0; s<2; ++s)
     for(int i=0; i<N; ++i)
