@@ -1,7 +1,6 @@
 #include "itensor/all.h"
 #include <iostream>
 #include <fstream>
-#include <time.h>
 #include "TStateObserver.h"
 
 using namespace std;
@@ -34,12 +33,10 @@ main(int argc, char* argv[])
 
     auto hamfile = input.getString("hamfile");
     auto ehamfile = input.getString("ehamfile");
-    auto intfile = input.getString("intfile");
-    auto eintfile = input.getString("eintfile");
-    //auto impidfile = input.getString("impsite");
+    auto vfile = input.getString("vfile");
+    auto evfile = input.getString("evfile");
     auto outdir = input.getString("outdir");
     auto N = input.getInt("N",1);
-    auto Nimp = input.getInt("Nimp",1);
     //auto U = input.getReal("U", 1.0);
     auto mu = input.getReal("mu", 1.0);
 
@@ -53,6 +50,7 @@ main(int argc, char* argv[])
     auto verbose = input.getYesNo("verbose",false);
     auto rungekutta = input.getYesNo("rungekutta", true);
     auto fitmpo = input.getYesNo("fitmpo", true);
+
 
     Args args;
     args.add("N",N);
@@ -70,30 +68,35 @@ main(int argc, char* argv[])
     ////////////////////////////////////////////////////////
     auto ampo = AutoMPO(sites);
 
-    //***************************//
-    //       Two-body terms      //
-    //***************************//
+    //////////////////
+    // Coulomb term //
+    //////////////////
+    ifstream vf(vfile);
     double v;
-    ifstream vfile(intfile);
     for(int i=1;i<=N;++i)
     for(int j=1;j<=N;++j)
     for(int k=1;k<=N;++k)
     for(int l=1;l<=N;++l)
         {
-        vfile >> v;
-        if(i==j && k==l)
-            ampo += v, "Nup", i, "Ndn", k;
-        else if(i==j && k!=l)
-            ampo += v, "Nup", i, "Cdagdn",k,"Cdn",l;
-        else if(k==l && i!=j)
-            ampo += v, "Cdagup",i,"Cup",j,"Ndn",k;
-        else
-            ampo += v, "Cdagup",i,"Cup",j,"Cdagdn",k,"Cdn",l;
+        vf >> v;
+        int s1 = 2*i-1;
+        int s2 = 2*j-1;
+        int s3 = 2*k-1;
+        int s4 = 2*l-1;
+        //if(abs(v)>1e-10)
+        //    {
+            if(i==j && k==l)      ampo += v,"Nup",s1,"Ndn",s3;
+            else if(i==j && k!=l) ampo += v,"Nup",s1,"Cdagdn",s3,"Cdn",s4;
+            else if(i!=j && k==l) ampo += v,"Cdagup",s1,"Cup",s2,"Ndn",s3;
+            else                  ampo += v,"Cdagup",s1,"Cup",s2,"Cdagdn",s3,"Cdn",s4; 
+        //    }
         }
+    ///////////////////////////
+    // nearest neighbor term //
+    ///////////////////////////
 
-    //***************************//
-    //       One-body terms      //
-    //***************************//
+
+    // read 1 body-hamiltonian from file
     ifstream file(hamfile);
 
     // spin up
@@ -132,36 +135,40 @@ main(int argc, char* argv[])
     }
     auto H = MPOT(ampo);
 
+    ////////////////////////////////////////////////////////
+    //          Construct effective Hamitltonian          //
+    ////////////////////////////////////////////////////////
+    auto empo = AutoMPO(sites);
 
-    //////////////////////////////////////////////////////
-    //         Construct effective Hamitltonian         //
-    //////////////////////////////////////////////////////
-    auto eampo = AutoMPO(sites);
- 
-    //***************************//
-    //       Two-body terms      //
-    //***************************//
-    ifstream evfile(eintfile);
+    //////////////////
+    // Coulomb term //
+    //////////////////
+    ifstream evf(evfile);
     for(int i=1;i<=N;++i)
     for(int j=1;j<=N;++j)
     for(int k=1;k<=N;++k)
     for(int l=1;l<=N;++l)
         {
-        evfile >> v;
-        if(i==j && k==l)
-            eampo += v, "Nup", i, "Ndn", k;
-        else if(i==j && k!=l)
-            eampo += v, "Nup", i, "Cdagdn",k,"Cdn",l;
-        else if(k==l && i!=j)
-            eampo += v, "Cdagup",i,"Cup",j,"Ndn",k;
-        else
-            eampo += v, "Cdagup",i,"Cup",j,"Cdagdn",k,"Cdn",l;
+        evf >> v;
+        int s1 = 2*i-1;
+        int s2 = 2*j-1;
+        int s3 = 2*k-1;
+        int s4 = 2*l-1;
+        //if(abs(v)>1e-10)
+        //    {
+            if(i==j && k==l)      empo += v,"Nup",s1,"Ndn",s3;
+            else if(i==j && k!=l) empo += v,"Nup",s1,"Cdagdn",s3,"Cdn",s4;
+            else if(i!=j && k==l) empo += v,"Cdagup",s1,"Cup",s2,"Ndn",s3;
+            else                  empo += v,"Cdagup",s1,"Cup",s2,"Cdagdn",s3,"Cdn",s4; 
+        //    }
         }
+    ///////////////////////////
+    // nearest neighbor term //
+    ///////////////////////////
 
-    //***************************//
-    //       One-body terms      //
-    //***************************//
-    ifstream efile(hamfile);
+
+    // read 1 body-hamiltonian from file
+    ifstream efile(ehamfile);
 
     // spin up
     for (int i=1; i<=N; ++i)
@@ -171,9 +178,9 @@ main(int argc, char* argv[])
         int s2 = 2*j-1;
         efile >> htemp;
         if(i==j)
-            eampo += htemp, "Nup", s1;
+            empo += htemp, "Nup", s1;
         else
-            eampo += htemp, "Cdagup",s1,"Cup",s2;
+            empo += htemp, "Cdagup",s1,"Cup",s2;
         } 
     // spin down
     for (int i=1; i<=N; ++i)
@@ -183,12 +190,29 @@ main(int argc, char* argv[])
         int s2 = 2*j-1;
         efile >> htemp;
         if(i==j)
-            eampo += htemp, "Ndn", s1;
+            empo += htemp, "Ndn", s1;
         else
-            eampo += htemp, "Cdagdn",s1,"Cdn",s2;
+            empo += htemp, "Cdagdn",s1,"Cdn",s2;
         } 
 
-    auto Heff = MPOT(eampo); 
+    auto Heff = MPOT(empo);
+
+
+
+
+    ///////////////////////////////////////////////////
+    //             total number operator             //
+    ///////////////////////////////////////////////////
+    auto nmpo = AutoMPO(sites);
+    for(int i=1; i<=N; ++i)
+    {
+        int s1 = 2*i-1;
+        nmpo += 1.0, "Nup", s1;
+        nmpo += 1.0, "Ndn", s1;
+    }
+
+    auto Ntot = MPOT(nmpo);
+    
     
     /////////////////////////////////////////////////////
     //           Make initial 'wavefunction'           //
@@ -236,7 +260,6 @@ main(int argc, char* argv[])
     Real tsofar = 0;
     for(int tt = 1; tt <= nt; ++tt)
         {
-        //time_t start = time(0);
         // 4th order Runge Kutta
         if(fitmpo)
             {
@@ -247,10 +270,8 @@ main(int argc, char* argv[])
             {
             psi = rk4_exact_1timestep(psi, tau, H, args);
             }
-        //double time_used = difftime( time(0), start);
-        ///////////////////// test the time used per step ////////
-        //cout << "Time used for one step: " << time_used << endl;
-        //////////////////////////////////////////////////////////
+        // MPO evolution
+
         psi.Aref(1) /= norm(psi.A(1));
         tsofar += tau;
         targs.add("TimeStepNum",tt);
@@ -265,16 +286,19 @@ main(int argc, char* argv[])
         Betas(tt-1) = bb;
         }
     auto*** rdm1s = get_rdm1s(psi, N);
+    auto* rdm2=get_rdm2diag(psi, N);
     auto energy = overlap(psi, Heff, psi);
-    //auto nelec = overlap(psi, Ntot, psi);
-    printfln("\nFinite T MPS (ancilla) calculation summary: impurity energy/N %.12f\n",energy/N);
+    //auto energy = overlap(psi, H, psi);
+    auto nelec = overlap(psi, Ntot, psi);
+    printfln("\nFinite T MPS (ancilla) calculation summery: impurity energy/N %.12f;  total electron number: %.4f",energy/N, nelec);
 
     //
     //save energy, rdm1 and rdm2 to files
     //
     std::ofstream enef(outdir + "energy.txt");
     std::ofstream rdm1f(outdir + "rdm1s.txt");
-    enef << format("%.14f  \n", energy/N);
+    std::ofstream rdm2f(outdir + "rdm2.txt");
+    enef << format("%.14f  \n", energy);
     enef.close();
     for(int s=0; s<2; ++s)
     for(int i=0; i<N; ++i)
@@ -286,6 +310,11 @@ main(int argc, char* argv[])
         rdm1f << "\n";
         }
     rdm1f.close();
+    // save rdm2 to file
+    for(int i=0; i<N; ++i)
+        rdm2f << format("%.14f  ", rdm2[i]);
+    rdm2f.close();
+
     return 0;
     }
 
